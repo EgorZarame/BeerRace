@@ -24,10 +24,14 @@ npm run preview
 
 ## Настройка ESP32
 
+1. Прошейте плату: скетч в папке [`firmware/BeerRace/BeerRace.ino`](firmware/BeerRace/BeerRace.ino).
+2. Откройте **Serial Monitor 115200** — там будет строка `IP address: http://192.168.x.x`.
+3. Подробнее: [`firmware/README.md`](firmware/README.md).
+
 Адрес устройства задаётся в `src/api.js`:
 
 ```js
-export const API_URL = 'http://192.168.1.123';
+export const API_URL = 'http://192.168.1.123'; // замените на IP из Serial
 ```
 
 ## API

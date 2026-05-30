@@ -1,19 +1,19 @@
-export const API_URL = 'http://192.168.1.123';
+export const API_URL = 'http://192.168.199.69';
 
-const REQUEST_TIMEOUT = 1500;
+const REQUEST_TIMEOUT = 4000;
 
 async function fetchJson(path, options = {}) {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT);
+  const isGet = !options.method || options.method === 'GET';
 
   try {
     const response = await fetch(`${API_URL}${path}`, {
       ...options,
       signal: controller.signal,
-      headers: {
-        'Content-Type': 'application/json',
-        ...options.headers,
-      },
+      headers: isGet
+        ? { ...options.headers }
+        : { 'Content-Type': 'application/json', ...options.headers },
     });
 
     if (!response.ok) {
@@ -24,6 +24,14 @@ async function fetchJson(path, options = {}) {
   } finally {
     clearTimeout(timeoutId);
   }
+}
+
+export async function fetchGameData() {
+  const weightData = await fetchJson('/weight');
+  const stateData = await fetchJson('/state');
+  const leaderboardData = await fetchJson('/leaderboard');
+
+  return { weightData, stateData, leaderboardData };
 }
 
 export async function getWeight() {
@@ -52,9 +60,4 @@ export async function postDrink() {
 
 export async function postCancel() {
   return fetchJson('/api/cancel', { method: 'POST' });
-}
-
-export async function pingDevice() {
-  await getState();
-  return true;
 }

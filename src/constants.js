@@ -5,7 +5,8 @@ export const GAME_STATES = {
   3: { label: 'Drinking', className: 'state-drinking' },
 };
 
-export const POLL_INTERVAL_MS = 200;
+export const POLL_INTERVAL_MS = 500;
+export const OFFLINE_AFTER_FAILURES = 5;
 
 export function formatDuration(ms) {
   if (ms == null || Number.isNaN(ms)) return '0.00';
