@@ -51,6 +51,9 @@ export default function App() {
           <section className={`glass-card status-card ${stateInfo.className}`}>
             <p className="card-label">Game State</p>
             <p className="status-card__state">{stateInfo.label}</p>
+            {stateInfo.hint && (
+              <p className="status-card__hint">{stateInfo.hint}</p>
+            )}
 
             <div className="status-card__metrics">
               <div className="metric">

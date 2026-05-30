@@ -34,9 +34,11 @@ const char* MDNS_HOSTNAME = "beerrace";
 #define SCK_PIN 5
 
 #define CALIBRATION_FACTOR  33.7f
-#define DRINK_THRESHOLD     60.0f   // г — старт таймера
-#define FINISH_THRESHOLD    20.0f   // г — допуск до baseline
+#define DRINK_THRESHOLD     50.0f   // г выпито — старт таймера
+#define FINISH_THRESHOLD    20.0f   // г на весах — пустая кружка (+ пена)
+#define MIN_POUR_WEIGHT     30.0f   // г — минимум жидкости перед DRINK
 #define AVERAGE_SAMPLES     10
+#define FINISH_STABLE_READS 5       // подряд стабильных показаний для финиша
 
 #define LEADERBOARD_FILE "/leaderboard.json"
 #define MAX_PLAYERS      50
@@ -90,6 +92,21 @@ void updateCachedWeight() {
 float readWeightFresh() {
   updateCachedWeight();
   return cachedWeight;
+}
+
+// Обнуление веса пустой кружки (tare)
+void tareCupStable() {
+  delay(400);
+  for (int i = 0; i < 10; i++) {
+    if (scale.is_ready()) {
+      scale.get_units(5);
+    }
+    delay(80);
+  }
+  scale.tare();
+  delay(300);
+  updateCachedWeight();
+  Serial.printf("[GAME] Cup tared, weight now %.1f g\n", cachedWeight);
 }
 
 // ---------- SPIFFS / лидерборд ----------
@@ -276,21 +293,32 @@ void setupRoutes() {
 
   server.on("/api/cup", HTTP_POST, [](AsyncWebServerRequest* request) {
     if (player.state == WAITING_CUP) {
-      player.baseline_weight = getWeight();
+      tareCupStable();
+      player.baseline_weight = 0;
+      player.start_weight = 0;
+      player.drink_start = 0;
+      player.drink_amount = 0;
       player.state = READY_TO_START;
-      Serial.printf("[GAME] Cup placed, baseline=%.1f g\n", player.baseline_weight);
+      Serial.println("[GAME] Empty cup zeroed — pour drink, then press DRINK");
     }
     request->send(200, "text/plain", "OK");
   });
 
   server.on("/api/drink", HTTP_POST, [](AsyncWebServerRequest* request) {
     if (player.state == READY_TO_START) {
-      player.start_weight = getWeight();
+      player.start_weight = readWeightFresh();
       player.drink_start = 0;
       player.duration = 0;
       player.drink_amount = 0;
+
+      if (player.start_weight < MIN_POUR_WEIGHT) {
+        Serial.printf("[GAME] WARN: low pour (%.1f g), pour more before drinking\n",
+                      player.start_weight);
+      }
+
       player.state = DRINKING;
-      Serial.printf("[GAME] Drink! start_weight=%.1f g\n", player.start_weight);
+      Serial.printf("[GAME] DRINK! liquid=%.1f g, timer at -%.0f g\n",
+                    player.start_weight, DRINK_THRESHOLD);
     }
     request->send(200, "text/plain", "OK");
   });
@@ -359,6 +387,7 @@ void setup() {
   }
 
   initScale();
+  updateCachedWeight();
   connectWiFi();
   setupRoutes();
 
@@ -369,19 +398,23 @@ void setup() {
 }
 
 void loop() {
+  updateCachedWeight();
+
   if (player.state != DRINKING) {
     delay(100);
     return;
   }
 
-  float weight = getWeight();
+  float weight = cachedWeight;
+  static uint8_t finishStableCount = 0;
 
   if (player.drink_start == 0) {
+    finishStableCount = 0;
     float consumed = player.start_weight - weight;
     if (consumed >= DRINK_THRESHOLD) {
       player.drink_start = millis();
       player.drink_amount = consumed;
-      Serial.println("[GAME] Timer started (60g threshold)");
+      Serial.printf("[GAME] Timer START (%.0f g drunk)\n", consumed);
     }
   } else {
     float consumed = player.start_weight - weight;
@@ -389,19 +422,26 @@ void loop() {
       player.drink_amount = consumed;
     }
 
-    if (weight <= player.baseline_weight + FINISH_THRESHOLD) {
-      player.duration = millis() - player.drink_start;
+    // Финиш: поставили пустую кружку, на весах ≤20 г (пена/капли)
+    if (weight <= FINISH_THRESHOLD) {
+      finishStableCount++;
+      if (finishStableCount >= FINISH_STABLE_READS) {
+        player.duration = millis() - player.drink_start;
 
-      saveResult(player.username, player.duration, player.drink_amount);
+        saveResult(player.username, player.duration, player.drink_amount);
 
-      Serial.print("[GAME] Finished! Time: ");
-      Serial.print(player.duration / 1000.0f, 2);
-      Serial.print(" s, amount: ");
-      Serial.print(player.drink_amount, 1);
-      Serial.println(" g");
+        Serial.print("[GAME] FINISH! Time: ");
+        Serial.print(player.duration / 1000.0f, 2);
+        Serial.print(" s, drank: ");
+        Serial.print(player.drink_amount, 1);
+        Serial.println(" g");
 
-      player.state = IDLE;
-      player.drink_start = 0;
+        player.state = IDLE;
+        player.drink_start = 0;
+        finishStableCount = 0;
+      }
+    } else {
+      finishStableCount = 0;
     }
   }
 
