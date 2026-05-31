@@ -10,46 +10,33 @@ export function useGameData() {
   const [timerMs, setTimerMs] = useState(0);
   const [drinkAmount, setDrinkAmount] = useState(0);
 
-  const drinkingStartRef = useRef(null);
-  const baselineWeightRef = useRef(null);
   const prevStateRef = useRef(0);
   const failCountRef = useRef(0);
   const pollingRef = useRef(false);
+  const espDurationRef = useRef(0);
+  const espDurationAtRef = useRef(0);
 
   const applyGameData = useCallback((weightData, stateData, leaderboardData) => {
     const state = stateData.state;
-    const currentWeight = weightData.weight;
-    const espDuration = stateData.duration;
-    const espAmount = stateData.amount;
+    const espDuration = stateData.duration ?? 0;
+    const espAmount = stateData.amount ?? 0;
 
-    setWeight(currentWeight);
+    setWeight(weightData.weight);
     setGameState(state);
     setLeaderboard(Array.isArray(leaderboardData) ? leaderboardData : []);
 
     if (state === 3) {
-      if (espDuration != null && espDuration > 0) {
+      if (espDuration > 0) {
+        espDurationRef.current = espDuration;
+        espDurationAtRef.current = Date.now();
         setTimerMs(espDuration);
-      } else if (drinkingStartRef.current) {
-        setTimerMs(Date.now() - drinkingStartRef.current);
-      } else if (prevStateRef.current !== 3) {
-        drinkingStartRef.current = Date.now();
-        setTimerMs(0);
       } else {
+        espDurationRef.current = 0;
         setTimerMs(0);
       }
-
-      if (espAmount != null) {
-        setDrinkAmount(espAmount);
-      } else if (baselineWeightRef.current != null) {
-        setDrinkAmount(Math.max(0, baselineWeightRef.current - currentWeight));
-      }
-
-      if (prevStateRef.current !== 3) {
-        baselineWeightRef.current = currentWeight;
-      }
+      setDrinkAmount(espAmount);
     } else {
-      drinkingStartRef.current = null;
-      baselineWeightRef.current = null;
+      espDurationRef.current = 0;
       setTimerMs(0);
       setDrinkAmount(0);
     }
@@ -87,8 +74,8 @@ export function useGameData() {
     if (gameState !== 3 || !connected) return undefined;
 
     const tickId = setInterval(() => {
-      if (drinkingStartRef.current) {
-        setTimerMs(Date.now() - drinkingStartRef.current);
+      if (espDurationRef.current > 0) {
+        setTimerMs(espDurationRef.current + Date.now() - espDurationAtRef.current);
       }
     }, 50);
 

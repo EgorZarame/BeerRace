@@ -1,7 +1,19 @@
 import { formatDuration } from '../constants';
 
+function dedupeEntries(entries) {
+  const seen = new Set();
+  return entries.filter((entry) => {
+    const key = `${entry.username}|${entry.duration}|${Math.round(entry.amount)}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
 export default function Leaderboard({ entries }) {
-  const sorted = [...entries].sort((a, b) => a.duration - b.duration);
+  const sorted = dedupeEntries([...entries]).sort(
+    (a, b) => a.duration - b.duration,
+  );
 
   return (
     <section className="glass-card leaderboard">

@@ -1,4 +1,4 @@
-export const API_URL = 'http://192.168.199.69';
+export const API_URL = 'http://192.168.0.194';
 
 const REQUEST_TIMEOUT = 4000;
 
