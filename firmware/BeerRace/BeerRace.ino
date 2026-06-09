@@ -1,19 +1,3 @@
-/*
- * Beer Race — ESP32-C3
- *
- * Библиотеки (Arduino IDE → Sketch → Include Library → Manage Libraries):
- *   - ESPAsyncWebServer by lacamera (или me-no-dev)
- *   - AsyncTCP by lacamera (для ESP32)
- *   - ArduinoJson by Benoit Blanchon (v6)
- *   - HX711 by Bogdan Necula
- *
- * Плата: ESP32C3 Dev Module
- * Upload Speed: 921600 (или 115200 если не грузится)
- * USB CDC On Boot: Enabled (часто нужно для Serial на C3)
- *
- * IP адрес: откройте Serial Monitor 115200 после прошивки — строка "IP address:"
- */
- 
 #include <WiFi.h>
 #include <ESPmDNS.h>
 #include <AsyncTCP.h>
